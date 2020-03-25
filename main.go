@@ -8,9 +8,9 @@ import (
 
 func main() {
     interval := 5.0
-    if len(os.Args) > 2 {
+    if len(os.Args) > 1 {
         var err error
-        interval, err = strconv.ParseFloat(os.Args[2], 64)
+        interval, err = strconv.ParseFloat(os.Args[1], 64)
         if err != nil {
             interval = 5.0
         }
