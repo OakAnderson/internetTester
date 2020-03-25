@@ -129,7 +129,7 @@ func ExecuteTest() (result []byte, err error) {
     if runtime.GOOS == "linux" {
         result, err = exec.Command("./speedtestAPI/linux-x86_64/speedtest", "-f", "json").Output()
     } else if runtime.GOOS == "windows" {
-        result, err = exec.Command("./speedtestAPI/windows-x86_64/speedtest", "-f", "json").Output()
+        result, err = exec.Command("speedtestAPI\\windows-x86_64\\speedtest.exe", "-f", "json").Output()
     }
 
     return
