@@ -1,0 +1,16 @@
+CREATE TABLE results (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    datetime VARCHAR(20),
+    latency REAL,
+    jitter REAL,
+    download REAL,
+    upload REAL,
+    packageLoss int,
+    hardware VARCHAR(10),
+    serverId INT,
+    port INT,
+    ip VARCHAR(15),
+    name VARCHAR(50),
+    location VARCHAR(30),
+    host VARCHAR(50)
+);
