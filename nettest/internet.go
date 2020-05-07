@@ -59,7 +59,13 @@ func (test *Netdata) execTest() error {
 
 func (test *Netdata) loadFields(results []byte) error {
 	test.Datetime = time.Now().Format("2006-01-02 15:04:05")
-	return json.Unmarshal(results, test)
+	err := json.Unmarshal(results, test)
+	if err != nil {
+		return err
+}
+	test.Download.BandwidthMB = float32(test.Download.Bandwidth) / float32(1e5)
+	test.Upload.BandwidthMB = float32(test.Upload.Bandwidth) / float32(1e5)
+	return nil
 }
 
 // MakeTest is
@@ -72,7 +78,6 @@ func MakeTest() (string, error) {
 	return fmt.Sprintf(
 		"%s - download: %.2f Mbps - upload: %.2f Mbps",
 		result.Datetime,
-		float32(result.Download.Bandwidth)/float32(1e5),
-		float32(result.Upload.Bandwidth)/float32(1e5),
-	), nil
+		result.Download.BandwidthMB,
+		result.Upload.BandwidthMB,
 }
