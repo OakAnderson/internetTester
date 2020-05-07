@@ -83,4 +83,35 @@ func MakeTest() (string, *Netdata, error) {
 	), &result, nil
 }
 
+// Save is
+func (test Netdata) Save() error {
+	db, err := database.ConnDatabase()
+	if err != nil {
+		return err
+	}
+
+	insert, err := db.Prepare(
+		"INSERT speedtest SET dt=?,latency=?,jitter=?,download=?,upload=?,packetLoss=?,hardware=?,serverId=?,port=?,ip=?,name=?,location=?,host=?",
+	)
+	if err != nil {
+		return err
+	}
+
+	_, err = insert.Exec(
+		test.Datetime,
+		test.Ping.Latency,
+		test.Ping.Jitter,
+		test.Download.BandwidthMB,
+		test.Upload.BandwidthMB,
+		test.PacketLoss,
+		test.Interface.Hardware,
+		test.Server.ID,
+		test.Server.Port,
+		test.Server.Name,
+		test.Server.IP,
+		test.Server.Location,
+		test.Server.Host,
+	)
+
+	return err
 }
