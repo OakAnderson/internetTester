@@ -69,15 +69,18 @@ func (test *Netdata) loadFields(results []byte) error {
 }
 
 // MakeTest is
-func MakeTest() (string, error) {
-	var result netdata
+func MakeTest() (string, *Netdata, error) {
+	var result Netdata
 	err := result.execTest()
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 	return fmt.Sprintf(
 		"%s - download: %.2f Mbps - upload: %.2f Mbps",
 		result.Datetime,
 		result.Download.BandwidthMB,
 		result.Upload.BandwidthMB,
+	), &result, nil
+}
+
 }
