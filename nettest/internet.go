@@ -9,7 +9,8 @@ import (
 	"time"
 )
 
-type netdata struct {
+// Netdata is
+type Netdata struct {
 	Datetime   string
 	PacketLoss float64 `json:"packetLoss"`
 
@@ -19,11 +20,13 @@ type netdata struct {
 	} `json:"ping"`
 
 	Download struct {
-		Bandwidth int "bandwidth"
+		Bandwidth   int `json:"bandwidth"`
+		BandwidthMB float32
 	} `json:"download"`
 
 	Upload struct {
-		Bandwidth int "bandwidth"
+		Bandwidth   int `json:"bandwidth"`
+		BandwidthMB float32
 	} `json:"Upload"`
 
 	Interface struct {
