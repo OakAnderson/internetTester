@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"runtime"
 	"time"
+
+	"github.com/OakAnderson/internetTester/database"
 )
 
 // Netdata is
@@ -62,7 +64,7 @@ func (test *Netdata) loadFields(results []byte) error {
 	err := json.Unmarshal(results, test)
 	if err != nil {
 		return err
-}
+	}
 	test.Download.BandwidthMB = float32(test.Download.Bandwidth) / float32(1e5)
 	test.Upload.BandwidthMB = float32(test.Upload.Bandwidth) / float32(1e5)
 	return nil
