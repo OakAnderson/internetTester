@@ -48,7 +48,7 @@ func pathAPI() string {
 	return filepath.Join(filepath.Dir(filename), "../API/linux-x86_64/speedtest")
 }
 
-func (test *netdata) execTest() error {
+func (test *Netdata) execTest() error {
 	result, err := exec.Command(pathAPI(), "-f", "json").Output()
 	if err != nil {
 		return err
@@ -57,7 +57,7 @@ func (test *netdata) execTest() error {
 	return test.loadFields(result)
 }
 
-func (test *netdata) loadFields(results []byte) error {
+func (test *Netdata) loadFields(results []byte) error {
 	test.Datetime = time.Now().Format("2006-01-02 15:04:05")
 	return json.Unmarshal(results, test)
 }
