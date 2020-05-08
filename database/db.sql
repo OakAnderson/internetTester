@@ -9,7 +9,7 @@ CREATE TABLE `speedtest` (
     `hardware`   VARCHAR(10) DEFAULT "not found",
     `serverId`   INT,
     `port`       INT,
-    `ip`         VARCHAR(15),
+    `ip`         VARCHAR(20),
     `name`       VARCHAR(50),
     `location`  VARCHAR(30),
     `host`       VARCHAR(50),
