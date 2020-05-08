@@ -1,6 +1,7 @@
 package nettest
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"os/exec"
@@ -8,7 +9,7 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/OakAnderson/internetTester/database"
+	_ "github.com/go-sql-driver/mysql" // Mysql driver
 )
 
 // Netdata is
@@ -87,7 +88,7 @@ func MakeTest() (string, *Netdata, error) {
 
 // Save is
 func (test Netdata) Save() error {
-	db, err := database.ConnDatabase()
+	db, err := connDatabase()
 	if err != nil {
 		return err
 	}
@@ -116,4 +117,10 @@ func (test Netdata) Save() error {
 	)
 
 	return err
+}
+
+// connDatabase connect to mysql database and return it
+func connDatabase() (db *sql.DB, err error) {
+	user, dbname := "oak", "internetTester"
+	return sql.Open("mysql", user+":@/"+dbname)
 }
