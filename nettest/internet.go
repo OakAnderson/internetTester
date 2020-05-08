@@ -80,19 +80,14 @@ func (test *Netdata) loadFields(results []byte) error {
 	return nil
 }
 
-// MakeTest is
-func MakeTest() (string, *Netdata, error) {
-	var result Netdata
-	err := result.execTest()
-	if err != nil {
-		return "", nil, err
-	}
+func (test Netdata) String() string {
 	return fmt.Sprintf(
-		"%s - download: %.2f Mbps - upload: %.2f Mbps",
-		result.Datetime,
-		result.Download.BandwidthMB,
-		result.Upload.BandwidthMB,
-	), &result, nil
+		"%s - download: %.2f Mbps - upload: %.2f Mbps - ping: %.0f ms",
+		test.Datetime,
+		test.Download.BandwidthMB,
+		test.Upload.BandwidthMB,
+		test.Ping.Latency,
+	)
 }
 
 // Save insert the results into the configurated database
@@ -167,6 +162,19 @@ func execTestVerbose() (result []byte, err error) {
 }
 // MakeTest execute a single speedtest and return the results with a formated
 // string and its struct
+func MakeTest(verbose bool) (*Netdata, error) {
+	var result Netdata
+	err := result.execTest(verbose)
+	if err != nil {
+		return nil, err
+	}
+
+	if verbose {
+		fmt.Println(result)
+	}
+
+	return &result, nil
+}
 
 // MultiTests execute n tests with an interval between them
 func MultiTests(times int, verbose, save bool, interval ...time.Duration) error {
