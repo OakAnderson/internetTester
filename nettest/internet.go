@@ -7,9 +7,18 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"sync"
 	"time"
 
 	_ "github.com/go-sql-driver/mysql" // Mysql driver
+	"github.com/schollz/progressbar/v3"
+)
+
+const (
+	testSpinner  int = 69
+	nextSpinner  int = 70
+	testThrottle int = 50
+	nextThrottle int = 400
 )
 
 // Netdata a struct that keeps speedtest relevant results
@@ -125,5 +134,103 @@ func connDatabase() (db *sql.DB, err error) {
 	return sql.Open("mysql", user+":@/"+dbname)
 }
 
+func showProgressbar(c chan bool, description string, ms, spinner int) {
+	bar := progressbar.NewOptions(
+		-1,
+		progressbar.OptionSetDescription(description),
+		progressbar.OptionSetPredictTime(false),
+		progressbar.OptionSpinnerType(spinner),
+		progressbar.OptionThrottle(time.Millisecond*time.Duration(ms)),
+	)
+
+	for {
+		select {
+		case <-c:
+			fmt.Printf("\r                                          \r")
+			return
+		default:
+			bar.Add(1)
+			break
+		}
+	}
+}
+
+func execTestVerbose() (result []byte, err error) {
+	c := make(chan bool)
+
+	go func() {
+		result, err = exec.Command(speedtest, "-f", "json").Output()
+		c <- true
+	}()
+	showProgressbar(c, "Executing test", testThrottle, testSpinner)
+	return
+}
 // MakeTest execute a single speedtest and return the results with a formated
 // string and its struct
+
+// MultiTests execute n tests with an interval between them
+func MultiTests(times int, verbose, save bool, interval ...time.Duration) error {
+	var waitInterval bool
+	if len(interval) > 0 {
+		for _, v := range interval {
+			if v < time.Minute {
+				return fmt.Errorf("an interval must be bigger than 1 minute")
+			}
+		}
+		waitInterval = true
+	}
+
+	var count int
+	nextTest := func() bool {
+		if times < 0 {
+			return true
+		}
+		count++
+		return count-1 < times
+	}
+
+	for nextTest() {
+		nd, err := MakeTest(verbose)
+		if err != nil {
+			return err
+		}
+
+		if save {
+			if err = nd.Save(); err != nil {
+				return err
+			}
+		}
+
+		if waitInterval {
+			if count-1 > len(interval) {
+				break
+			}
+
+			ticker := interval[count%len(interval)]
+
+			var c chan bool
+			if verbose {
+				c = make(chan bool)
+				go func() {
+					showProgressbar(
+						c,
+						fmt.Sprintf(
+							"Next test in: %s",
+							time.Now().Add(ticker).Format("2006-01-02 15:04:05")),
+						nextThrottle,
+						nextSpinner,
+					)
+				}()
+			}
+			time.Sleep(ticker)
+
+			c <- true
+		}
+	}
+
+	if verbose {
+		fmt.Println("Done!")
+	}
+
+	return nil
+}
