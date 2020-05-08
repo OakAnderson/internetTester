@@ -12,7 +12,7 @@ import (
 	_ "github.com/go-sql-driver/mysql" // Mysql driver
 )
 
-// Netdata is
+// Netdata a struct that keeps speedtest relevant results
 type Netdata struct {
 	Datetime   string
 	PacketLoss float64 `json:"packetLoss"`
@@ -86,7 +86,7 @@ func MakeTest() (string, *Netdata, error) {
 	), &result, nil
 }
 
-// Save is
+// Save insert the results into the configurated database
 func (test Netdata) Save() error {
 	db, err := connDatabase()
 	if err != nil {
@@ -124,3 +124,6 @@ func connDatabase() (db *sql.DB, err error) {
 	user, dbname := "oak", "internetTester"
 	return sql.Open("mysql", user+":@/"+dbname)
 }
+
+// MakeTest execute a single speedtest and return the results with a formated
+// string and its struct
