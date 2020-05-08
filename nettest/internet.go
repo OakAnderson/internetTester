@@ -167,6 +167,20 @@ func execTestVerbose() (result []byte, err error) {
 	showProgressbar(c, "Executing test", testThrottle, testSpinner)
 	return
 }
+
+func execTest() (result []byte, err error) {
+	var wg sync.WaitGroup
+	wg.Add(1)
+
+	go func() {
+		result, err = exec.Command(speedtest, "-f", "json").Output()
+		wg.Done()
+	}()
+
+	wg.Wait()
+	return
+}
+
 // MakeTest execute a single speedtest and return the results with a formated
 // string and its struct
 func MakeTest(verbose bool) (*Netdata, error) {
