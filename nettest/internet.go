@@ -55,13 +55,20 @@ type Netdata struct {
 	} `json:"server"`
 }
 
-func pathAPI() string {
+var speedtest string
+
+func init() {
 	_, filename, _, _ := runtime.Caller(0)
-	return filepath.Join(filepath.Dir(filename), "../API/linux-x86_64/speedtest")
+	speedtest = filepath.Join(filepath.Dir(filename), "../API/linux-x86_64/speedtest")
 }
 
-func (test *Netdata) execTest() error {
-	result, err := exec.Command(pathAPI(), "-f", "json").Output()
+func (test *Netdata) execTest(verbose bool) (err error) {
+	var result []byte
+	if verbose {
+		result, err = execTestVerbose()
+	} else {
+		result, err = execTest()
+	}
 	if err != nil {
 		return err
 	}
