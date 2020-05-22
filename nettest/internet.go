@@ -7,7 +7,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
-	"sync"
 	"time"
 
 	_ "github.com/go-sql-driver/mysql" // Mysql driver
@@ -20,6 +19,14 @@ const (
 	testThrottle int = 50
 	nextThrottle int = 400
 )
+
+// Saver is an interface that is used to save data
+type Saver interface {
+	// Exec must save the args into something, sql.Stmt implements
+	// this interface, just adjust your database into this
+	// sql.Result is not used, is just here to implement sql.Stmt.Exec
+	Exec(args ...interface{}) (sql.Result, error)
+}
 
 // Netdata a struct that keeps speedtest relevant results
 type Netdata struct {
@@ -42,12 +49,11 @@ type Netdata struct {
 	} `json:"Upload"`
 
 	Interface struct {
-		Hardware string `json:"hardware"`
+		Hardware string `json:"name"`
 	} `json:"interface"`
 
 	Server struct {
 		ID       int    `json:"id"`
-		Port     int    `json:"port"`
 		IP       string `json:"ip"`
 		Name     string `json:"name"`
 		Location string `json:"location"`
@@ -59,7 +65,8 @@ var speedtest string
 
 func init() {
 	_, filename, _, _ := runtime.Caller(0)
-	speedtest = filepath.Join(filepath.Dir(filename), "../API/linux-x86_64/speedtest")
+	bin := map[string]string{"windows": "windows/speedtest.exe", "linux": "linux/speedtest"}
+	speedtest = filepath.Join(filepath.Dir(filename), "../API/"+bin[runtime.GOOS])
 }
 
 func (test *Netdata) execTest(verbose bool) (err error) {
@@ -82,6 +89,7 @@ func (test *Netdata) loadFields(results []byte) error {
 	if err != nil {
 		return err
 	}
+
 	test.Download.BandwidthMB = float32(test.Download.Bandwidth) / float32(1e5)
 	test.Upload.BandwidthMB = float32(test.Upload.Bandwidth) / float32(1e5)
 	return nil
@@ -98,20 +106,8 @@ func (test Netdata) String() string {
 }
 
 // Save insert the results into the configurated database
-func (test Netdata) Save() error {
-	db, err := connDatabase()
-	if err != nil {
-		return err
-	}
-
-	insert, err := db.Prepare(
-		"INSERT speedtest SET dt=?,latency=?,jitter=?,download=?,upload=?,packetLoss=?,hardware=?,serverId=?,port=?,ip=?,name=?,location=?,host=?",
-	)
-	if err != nil {
-		return err
-	}
-
-	_, err = insert.Exec(
+func (test Netdata) Save(s Saver) error {
+	_, err := s.Exec(
 		test.Datetime,
 		test.Ping.Latency,
 		test.Ping.Jitter,
@@ -120,20 +116,13 @@ func (test Netdata) Save() error {
 		test.PacketLoss,
 		test.Interface.Hardware,
 		test.Server.ID,
-		test.Server.Port,
-		test.Server.Name,
 		test.Server.IP,
+		test.Server.Name,
 		test.Server.Location,
 		test.Server.Host,
 	)
 
 	return err
-}
-
-// connDatabase connect to mysql database and return it
-func connDatabase() (db *sql.DB, err error) {
-	user, dbname := "oak", "internetTester"
-	return sql.Open("mysql", user+":@/"+dbname)
 }
 
 func showProgressbar(c chan bool, description string, ms, spinner int) {
@@ -150,7 +139,7 @@ func showProgressbar(c chan bool, description string, ms, spinner int) {
 		case <-c:
 			fmt.Printf("\r                                          \r")
 			return
-		default:
+		case <-time.After(time.Millisecond * 50):
 			bar.Add(1)
 			break
 		}
@@ -165,28 +154,20 @@ func execTestVerbose() (result []byte, err error) {
 		c <- true
 	}()
 	showProgressbar(c, "Executing test", testThrottle, testSpinner)
+
 	return
 }
 
 func execTest() (result []byte, err error) {
-	var wg sync.WaitGroup
-	wg.Add(1)
-
-	go func() {
-		result, err = exec.Command(speedtest, "-f", "json").Output()
-		wg.Done()
-	}()
-
-	wg.Wait()
-	return
+	return exec.Command(speedtest, "-f", "json").Output()
 }
 
 // MakeTest execute a single speedtest and return the results with a formated
 // string and its struct
 func MakeTest(verbose bool) (*Netdata, error) {
 	var result Netdata
-	err := result.execTest(verbose)
-	if err != nil {
+
+	if err := result.execTest(verbose); err != nil {
 		return nil, err
 	}
 
@@ -198,7 +179,7 @@ func MakeTest(verbose bool) (*Netdata, error) {
 }
 
 // MultiTests execute n tests with an interval between them
-func MultiTests(times int, verbose, save bool, interval ...time.Duration) error {
+func MultiTests(times int, verbose bool, save Saver, interval ...time.Duration) error {
 	var waitInterval bool
 	if len(interval) > 0 {
 		for _, v := range interval {
@@ -224,18 +205,18 @@ func MultiTests(times int, verbose, save bool, interval ...time.Duration) error 
 			return err
 		}
 
-		if save {
-			if err = nd.Save(); err != nil {
+		if save != nil {
+			if err = nd.Save(save); err != nil {
 				return err
 			}
 		}
 
-		if waitInterval {
+		if waitInterval && count < times {
 			if count-1 > len(interval) {
 				break
 			}
 
-			ticker := interval[count%len(interval)]
+			ticker := interval[count-1%len(interval)]
 
 			var c chan bool
 			if verbose {
@@ -252,7 +233,6 @@ func MultiTests(times int, verbose, save bool, interval ...time.Duration) error 
 				}()
 			}
 			time.Sleep(ticker)
-
 			c <- true
 		}
 	}
