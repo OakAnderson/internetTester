@@ -184,7 +184,7 @@ func MultiTests(times int, verbose bool, save Saver, interval ...time.Duration) 
 	if len(interval) > 0 {
 		for _, v := range interval {
 			if v < time.Minute {
-				return fmt.Errorf("an interval must be bigger than 1 minute")
+				return fmt.Errorf("an interval must be bigger than 1 minute, not %v", v)
 			}
 		}
 		waitInterval = true
@@ -211,12 +211,13 @@ func MultiTests(times int, verbose bool, save Saver, interval ...time.Duration) 
 			}
 		}
 
-		if waitInterval && count < times {
+		if waitInterval && nextTest() {
+			count--
 			if count-1 > len(interval) {
 				break
 			}
 
-			ticker := interval[count-1%len(interval)]
+			ticker := interval[(count-1)%len(interval)]
 
 			var c chan bool
 			if verbose {
