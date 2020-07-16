@@ -32,7 +32,7 @@ func main() {
 	tickers, err := cmd.GetIntervals(interval)
 	cmd.Check(err)
 
-	saver, err := internal.SaveCSV(file)
+	saver, err := internal.SaveCSV(file, "dt,latency,jitter,download,upload,packetLoss,hardware,serverId,ip,name,location,host\n")
 	cmd.Check(err)
 
 	err = nettest.MultiTests(tests, verbose, saver, tickers...)

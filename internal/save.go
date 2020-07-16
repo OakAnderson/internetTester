@@ -51,7 +51,7 @@ func SaveMysql(user, password, database string) (nettest.Saver, error) {
 }
 
 // SaveCSV return a nettest.Saver to save into a file
-func SaveCSV(filename string) (nettest.Saver, error) {
+func SaveCSV(filename, columns string) (nettest.Saver, error) {
 	file, err := os.OpenFile(filename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
 	if err != nil {
 		return nil, err
@@ -64,7 +64,7 @@ func SaveCSV(filename string) (nettest.Saver, error) {
 
 	if stat.Size() == 0 {
 		_, err = file.Write(
-			[]byte("dt,latency,jitter,download,upload,packetLoss,hardware,serverId,ip,name,location,host\n"))
+			[]byte(columns))
 
 		if err != nil {
 			return nil, err
