@@ -4,12 +4,13 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"time"
 
-	_ "github.com/go-sql-driver/mysql" // Mysql driver
 	"github.com/schollz/progressbar/v3"
 )
 
@@ -31,7 +32,10 @@ type Saver interface {
 // Netdata a struct that keeps speedtest relevant results
 type Netdata struct {
 	Datetime   string
+	Start      time.Time
 	PacketLoss float64 `json:"packetLoss"`
+	Type       string  `json:"type"`
+	Message    string  `json:"message"`
 
 	Ping struct {
 		Latency float64 `json:"latency"`
@@ -71,6 +75,7 @@ func init() {
 
 func (test *Netdata) execTest(verbose bool) (err error) {
 	var result []byte
+	test.Start = time.Now()
 	if verbose {
 		result, err = execTestVerbose()
 	} else {
@@ -85,9 +90,27 @@ func (test *Netdata) execTest(verbose bool) (err error) {
 
 func (test *Netdata) loadFields(results []byte) error {
 	test.Datetime = time.Now().Format("2006-01-02 15:04:05")
-	err := json.Unmarshal(results, test)
+
+	strResults := strings.TrimLeftFunc(
+		string(results),
+		func(r rune) bool {
+			return r != '{'
+		},
+	)
+	strResults = strings.TrimRightFunc(
+		strResults,
+		func(r rune) bool {
+			return r != '}'
+		},
+	)
+
+	err := json.Unmarshal([]byte(strResults), test)
 	if err != nil {
 		return err
+	}
+
+	if test.Type != "result" {
+		return fmt.Errorf(test.Message)
 	}
 
 	test.Download.BandwidthMB = float32(test.Download.Bandwidth) / float32(1e5)
@@ -138,6 +161,7 @@ func showProgressbar(c chan bool, description string, ms, spinner int) {
 		select {
 		case <-c:
 			fmt.Printf("\r                                          \r")
+			close(c)
 			return
 		case <-time.After(time.Millisecond * 50):
 			bar.Add(1)
@@ -150,16 +174,49 @@ func execTestVerbose() (result []byte, err error) {
 	c := make(chan bool)
 
 	go func() {
-		result, err = exec.Command(speedtest, "-f", "json").Output()
+		result, err = execTest()
 		c <- true
 	}()
+
 	showProgressbar(c, "Executing test", testThrottle, testSpinner)
 
 	return
 }
 
 func execTest() (result []byte, err error) {
-	return exec.Command(speedtest, "-f", "json").Output()
+	cmd := exec.Command(speedtest, "-f", "json")
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		return nil, err
+	}
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		return nil, err
+	}
+
+	if err := cmd.Start(); err != nil {
+		return nil, err
+	}
+
+	resultErr, err := ioutil.ReadAll(stderr)
+	if err != nil {
+		return nil, err
+	}
+	result, err = ioutil.ReadAll(stdout)
+	if err != nil {
+		return nil, err
+	}
+
+	err = cmd.Wait()
+
+	if err != nil {
+		if len(resultErr) == 0 {
+			return nil, err
+		}
+		return resultErr, nil
+	}
+
+	return
 }
 
 // MakeTest execute a single speedtest and return the results with a formated
@@ -196,7 +253,7 @@ func MultiTests(times int, verbose bool, save Saver, interval ...time.Duration) 
 			return true
 		}
 		count++
-		return count-1 < times
+		return count <= times
 	}
 
 	for nextTest() {
@@ -213,28 +270,14 @@ func MultiTests(times int, verbose bool, save Saver, interval ...time.Duration) 
 
 		if waitInterval && nextTest() {
 			count--
-			if count-1 > len(interval) {
-				break
-			}
-
 			ticker := interval[(count-1)%len(interval)]
+			ticker -= time.Since(nd.Start)
 
-			var c chan bool
 			if verbose {
-				c = make(chan bool)
-				go func() {
-					showProgressbar(
-						c,
-						fmt.Sprintf(
-							"Next test in: %s",
-							time.Now().Add(ticker).Format("2006-01-02 15:04:05")),
-						nextThrottle,
-						nextSpinner,
-					)
-				}()
+				timerVerbose(ticker)
+			} else {
+				time.Sleep(ticker)
 			}
-			time.Sleep(ticker)
-			c <- true
 		}
 	}
 
@@ -243,4 +286,22 @@ func MultiTests(times int, verbose bool, save Saver, interval ...time.Duration) 
 	}
 
 	return nil
+}
+
+func timerVerbose(t time.Duration) {
+	c := make(chan bool)
+
+	go func() {
+		time.Sleep(t)
+		c <- true
+	}()
+
+	showProgressbar(
+		c,
+		fmt.Sprintf("Next test in: %s",
+			time.Now().Add(t).Format("2006-01-02 15:04:05"),
+		),
+		nextThrottle,
+		nextSpinner,
+	)
 }

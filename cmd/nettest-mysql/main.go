@@ -7,6 +7,8 @@ import (
 	"github.com/OakAnderson/internetTester/cmd"
 	"github.com/OakAnderson/internetTester/internal"
 	"github.com/OakAnderson/internetTester/nettest"
+
+	_ "github.com/go-sql-driver/mysql"
 )
 
 var (
