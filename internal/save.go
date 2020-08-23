@@ -3,6 +3,8 @@ package internal
 import (
 	"database/sql"
 	"fmt"
+	"go/build"
+	"io/ioutil"
 	"os"
 
 	"github.com/OakAnderson/internetTester/nettest"
@@ -38,9 +40,25 @@ func connDatabase(user, password, database string) (db *sql.DB, err error) {
 	return sql.Open("mysql", user+":"+password+"@/"+database)
 }
 
+func createTableIfNotExists(db *sql.DB) error {
+	dbTable, err := ioutil.ReadFile(build.Default.GOPATH + "/src/github.com/OakAnderson/internetTester/database/db.sql")
+	if err != nil {
+		return err
+	}
+
+	_, err = db.Exec(string(dbTable))
+
+	return err
+}
+
 // SaveMysql return the sql.Stmt for insert to database
 func SaveMysql(user, password, database string) (nettest.Saver, error) {
 	db, err := connDatabase(user, password, database)
+	if err != nil {
+		return nil, err
+	}
+
+	err = createTableIfNotExists(db)
 	if err != nil {
 		return nil, err
 	}
