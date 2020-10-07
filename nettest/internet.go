@@ -120,7 +120,7 @@ func (test *Netdata) loadFields(results []byte) error {
 
 func (test Netdata) String() string {
 	return fmt.Sprintf(
-		"%s - download: %.2f Mbps - upload: %.2f Mbps - ping: %.0f ms",
+		"%s | \u21D3 %.2f Mbps \u21D1 %.2f Mbps \u25F4 %.0f ms",
 		test.Datetime,
 		test.Download.BandwidthMB,
 		test.Upload.BandwidthMB,
