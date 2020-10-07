@@ -15,8 +15,8 @@ import (
 )
 
 const (
-	testSpinner  int = 69
-	nextSpinner  int = 70
+	testSpinner  int = 59
+	nextSpinner  int = 67
 	testThrottle int = 50
 	nextThrottle int = 400
 )
